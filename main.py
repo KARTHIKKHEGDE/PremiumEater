@@ -68,7 +68,10 @@ async def home(request: Request):
                 "atm_strike": result.get('atm_strike', 0),
                 "timestamp": result.get('timestamp', datetime.now().strftime("%H:%M:%S")),
                 "expiry_date": result.get('expiry_date', None),
-                "last_updated": result.get('last_updated', '')
+                "last_updated": result.get('last_updated', ''),
+                "pcr": result.get('pcr', 0),
+                "total_call_oi": result.get('total_call_oi', 0),
+                "total_put_oi": result.get('total_put_oi', 0)
             }
         )
     except Exception as e:

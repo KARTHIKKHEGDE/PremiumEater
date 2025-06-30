@@ -14,7 +14,7 @@ class WebScraper:
     oi_history = {}
     SYMBOL = "NIFTY"
     STRIKES_TO_SHOW = 3  # Number of strikes above and below ATM
-    OI_CHANGE_INTERVALS_MIN = (5, 10, 15, 30)
+    OI_CHANGE_INTERVALS_MIN = (5, 10, 15, 30, 60, 120)
     
     # User agents to avoid blocking
     USER_AGENTS = [
@@ -286,13 +286,60 @@ class WebScraper:
         # Sort by strike price
         filtered_data.sort(key=lambda x: x['strike'])
         
-        return {
+        # Calculate Put-Call Ratio (PCR) for top 5 strikes
+        # Sort by strike price and get all 7 strikes (3 above and 3 below ATM + ATM)
+        sorted_data = sorted(filtered_data, key=lambda x: x['strike'])
+        
+        # Get ATM index
+        atm_index = next((i for i, item in enumerate(sorted_data) if item['is_atm']), len(sorted_data) // 2)
+        
+        # Get 3 strikes below and 3 above ATM (total 7 strikes including ATM)
+        start_idx = max(0, atm_index - 3)
+        end_idx = min(len(sorted_data), atm_index + 4)  # +4 to include ATM and 3 above
+        
+        # Ensure we have exactly 7 strikes if possible
+        if (end_idx - start_idx) < 7 and end_idx < len(sorted_data):
+            end_idx = min(len(sorted_data), start_idx + 7)
+        elif (end_idx - start_idx) < 7:
+            start_idx = max(0, end_idx - 7)
+            
+        selected_strikes = sorted_data[start_idx:end_idx]
+        
+        call_oi_total = int(sum(float(item['call_oi']) for item in selected_strikes))
+        put_oi_total = int(sum(float(item['put_oi']) for item in selected_strikes))
+        pcr = round(put_oi_total / call_oi_total, 2) if call_oi_total > 0 else 0
+        
+        # Debug output
+        print("\n=== PCR Calculation (7 Strikes) ===")
+        print(f"Selected Strikes: {[item['strike'] for item in selected_strikes]}")
+        print(f"ATM Strike: {next((item['strike'] for item in selected_strikes if item['is_atm']), 'N/A')}")
+        print(f"Call OIs: {[item['call_oi'] for item in selected_strikes]}")
+        print(f"Put OIs: {[item['put_oi'] for item in selected_strikes]}")
+        print(f"Total Call OI: {call_oi_total}")
+        print(f"Total Put OI: {put_oi_total}")
+        print(f"PCR: {pcr}")
+        print("================================\n")
+        
+        # Ensure all numeric values are JSON serializable
+        result = {
             'data': filtered_data,
-            'current_price': current_price,
-            'atm_strike': atm_strike,
+            'current_price': float(current_price) if current_price else 0,
+            'atm_strike': int(atm_strike) if atm_strike else 0,
             'timestamp': current_time.strftime("%H:%M:%S"),
-            'expiry_date': expiry_date
+            'pcr': float(pcr),
+            'total_call_oi': int(call_oi_total),
+            'total_put_oi': int(put_oi_total)
         }
+        
+        if expiry_date:
+            if isinstance(expiry_date, str):
+                result['expiry_date'] = expiry_date
+            else:
+                result['expiry_date'] = expiry_date.strftime("%d-%b-%Y") if hasattr(expiry_date, 'strftime') else str(expiry_date)
+        else:
+            result['expiry_date'] = None
+            
+        return result
     
     @staticmethod
     async def scrape_oi_data(url: str) -> Dict[str, Any]:
@@ -316,15 +363,26 @@ class WebScraper:
                     'message': "Failed to process data"
                 }
             
-            return {
+            # Prepare response with all data
+            response = {
                 'status': 'success',
-                'oi_data': processed_data['data'],
-                'current_price': processed_data['current_price'],
-                'atm_strike': processed_data['atm_strike'],
-                'timestamp': processed_data['timestamp'],
-                'expiry_date': processed_data['expiry_date'] if processed_data['expiry_date'] else None,
+                'oi_data': processed_data.get('data', []),
+                'current_price': float(processed_data.get('current_price', 0)),
+                'atm_strike': int(processed_data.get('atm_strike', 0)),
+                'timestamp': processed_data.get('timestamp', datetime.now().strftime("%H:%M:%S")),
+                'expiry_date': processed_data.get('expiry_date'),
+                'pcr': float(processed_data.get('pcr', 0)),
+                'total_call_oi': int(processed_data.get('total_call_oi', 0)),
+                'total_put_oi': int(processed_data.get('total_put_oi', 0)),
                 'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
+            
+            # Debug output
+            print("\n=== Final Response ===")
+            print(json.dumps(response, indent=2, default=str))
+            print("====================\n")
+            
+            return response
         
         except Exception as e:
             logging.exception("Error in scrape_oi_data")

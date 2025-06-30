@@ -12,11 +12,29 @@
         <!-- Market Summary Panel -->
         <div class="bg-blue-900 border border-blue-500 rounded-md p-3 mb-4">
             <h2 class="text-center font-bold mb-2 text-blue-300">Market Summary</h2>
-            <p class="text-center">
-                <span class="font-bold">Underlying:</span> {{ current_price|number_format(2) }} | 
-                <span class="font-bold">ATM Strike:</span> {{ atm_strike }} | 
-                <span class="font-bold">Expiry:</span> {% if expiry_date %}{{ expiry_date }}{% else %}Unknown{% endif %}
-            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="text-center">
+                    <p class="mb-1">
+                        <span class="font-bold">Underlying:</span> {{ current_price|number_format(2) }} | 
+                        <span class="font-bold">ATM Strike:</span> {{ atm_strike }}
+                    </p>
+                    <p>
+                        <span class="font-bold">Expiry:</span> {% if expiry_date %}{{ expiry_date }}{% else %}Unknown{% endif %}
+                    </p>
+                </div>
+                <div class="text-center border-l border-blue-600 pl-4">
+                    <p class="mb-1">
+                        <span class="font-bold">PCR (7 Strikes):</span> 
+                        <span class="{% if pcr > 1.2 %}text-green-400{% elif pcr < 0.8 %}text-red-400{% else %}text-yellow-300{% endif %} font-bold">
+                            {{ pcr|number_format(2) }}
+                        </span>
+                    </p>
+                    <p>
+                        <span class="text-green-400">Calls OI: {{ total_call_oi|number_format }}</span> | 
+                        <span class="text-red-400">Puts OI: {{ total_put_oi|number_format }}</span>
+                    </p>
+                </div>
+            </div>
         </div>
         
         <!-- CALL Options Table -->
@@ -35,6 +53,8 @@
                             <th class="py-2 px-4 border border-green-500 bg-green-900 text-right">10m%</th>
                             <th class="py-2 px-4 border border-green-500 bg-green-900 text-right">15m%</th>
                             <th class="py-2 px-4 border border-green-500 bg-green-900 text-right">30m%</th>
+                            <th class="py-2 px-4 border border-green-500 bg-green-900 text-right">1h%</th>
+                            <th class="py-2 px-4 border border-green-500 bg-green-900 text-right">2h%</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -125,6 +145,40 @@
                                 {% else %}
                                     <td class="py-2 px-4 border border-green-500 text-right">N/A</td>
                                 {% endif %}
+                                
+                                <!-- 1h% change -->
+                                {% if item.call_pct_60m is defined %}
+                                    {% if item.call_pct_60m > 25 %}
+                                        <td class="py-2 px-4 border border-green-500 text-right font-bold text-green-400">+{{ item.call_pct_60m|number_format(2) }}%</td>
+                                    {% elif item.call_pct_60m < -25 %}
+                                        <td class="py-2 px-4 border border-green-500 text-right font-bold text-red-400">{{ item.call_pct_60m|number_format(2) }}%</td>
+                                    {% elif item.call_pct_60m > 0 %}
+                                        <td class="py-2 px-4 border border-green-500 text-right text-green-400">+{{ item.call_pct_60m|number_format(2) }}%</td>
+                                    {% elif item.call_pct_60m < 0 %}
+                                        <td class="py-2 px-4 border border-green-500 text-right text-red-400">{{ item.call_pct_60m|number_format(2) }}%</td>
+                                    {% else %}
+                                        <td class="py-2 px-4 border border-green-500 text-right">0.00%</td>
+                                    {% endif %}
+                                {% else %}
+                                    <td class="py-2 px-4 border border-green-500 text-right">N/A</td>
+                                {% endif %}
+                                
+                                <!-- 2h% change -->
+                                {% if item.call_pct_120m is defined %}
+                                    {% if item.call_pct_120m > 30 %}
+                                        <td class="py-2 px-4 border border-green-500 text-right font-bold text-green-400">+{{ item.call_pct_120m|number_format(2) }}%</td>
+                                    {% elif item.call_pct_120m < -30 %}
+                                        <td class="py-2 px-4 border border-green-500 text-right font-bold text-red-400">{{ item.call_pct_120m|number_format(2) }}%</td>
+                                    {% elif item.call_pct_120m > 0 %}
+                                        <td class="py-2 px-4 border border-green-500 text-right text-green-400">+{{ item.call_pct_120m|number_format(2) }}%</td>
+                                    {% elif item.call_pct_120m < 0 %}
+                                        <td class="py-2 px-4 border border-green-500 text-right text-red-400">{{ item.call_pct_120m|number_format(2) }}%</td>
+                                    {% else %}
+                                        <td class="py-2 px-4 border border-green-500 text-right">0.00%</td>
+                                    {% endif %}
+                                {% else %}
+                                    <td class="py-2 px-4 border border-green-500 text-right">N/A</td>
+                                {% endif %}
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -148,6 +202,8 @@
                             <th class="py-2 px-4 border border-red-500 bg-red-900 text-right">10m%</th>
                             <th class="py-2 px-4 border border-red-500 bg-red-900 text-right">15m%</th>
                             <th class="py-2 px-4 border border-red-500 bg-red-900 text-right">30m%</th>
+                            <th class="py-2 px-4 border border-red-500 bg-red-900 text-right">1h%</th>
+                            <th class="py-2 px-4 border border-red-500 bg-red-900 text-right">2h%</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -232,6 +288,40 @@
                                         <td class="py-2 px-4 border border-red-500 text-right text-green-400">+{{ item.put_pct_30m|number_format(2) }}%</td>
                                     {% elif item.put_pct_30m < 0 %}
                                         <td class="py-2 px-4 border border-red-500 text-right text-red-400">{{ item.put_pct_30m|number_format(2) }}%</td>
+                                    {% else %}
+                                        <td class="py-2 px-4 border border-red-500 text-right">0.00%</td>
+                                    {% endif %}
+                                {% else %}
+                                    <td class="py-2 px-4 border border-red-500 text-right">N/A</td>
+                                {% endif %}
+                                
+                                <!-- 1h% change -->
+                                {% if item.put_pct_60m is defined %}
+                                    {% if item.put_pct_60m > 25 %}
+                                        <td class="py-2 px-4 border border-red-500 text-right font-bold text-green-400">+{{ item.put_pct_60m|number_format(2) }}%</td>
+                                    {% elif item.put_pct_60m < -25 %}
+                                        <td class="py-2 px-4 border border-red-500 text-right font-bold text-red-400">{{ item.put_pct_60m|number_format(2) }}%</td>
+                                    {% elif item.put_pct_60m > 0 %}
+                                        <td class="py-2 px-4 border border-red-500 text-right text-green-400">+{{ item.put_pct_60m|number_format(2) }}%</td>
+                                    {% elif item.put_pct_60m < 0 %}
+                                        <td class="py-2 px-4 border border-red-500 text-right text-red-400">{{ item.put_pct_60m|number_format(2) }}%</td>
+                                    {% else %}
+                                        <td class="py-2 px-4 border border-red-500 text-right">0.00%</td>
+                                    {% endif %}
+                                {% else %}
+                                    <td class="py-2 px-4 border border-red-500 text-right">N/A</td>
+                                {% endif %}
+                                
+                                <!-- 2h% change -->
+                                {% if item.put_pct_120m is defined %}
+                                    {% if item.put_pct_120m > 30 %}
+                                        <td class="py-2 px-4 border border-red-500 text-right font-bold text-green-400">+{{ item.put_pct_120m|number_format(2) }}%</td>
+                                    {% elif item.put_pct_120m < -30 %}
+                                        <td class="py-2 px-4 border border-red-500 text-right font-bold text-red-400">{{ item.put_pct_120m|number_format(2) }}%</td>
+                                    {% elif item.put_pct_120m > 0 %}
+                                        <td class="py-2 px-4 border border-red-500 text-right text-green-400">+{{ item.put_pct_120m|number_format(2) }}%</td>
+                                    {% elif item.put_pct_120m < 0 %}
+                                        <td class="py-2 px-4 border border-red-500 text-right text-red-400">{{ item.put_pct_120m|number_format(2) }}%</td>
                                     {% else %}
                                         <td class="py-2 px-4 border border-red-500 text-right">0.00%</td>
                                     {% endif %}
