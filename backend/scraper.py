@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime, timedelta
 import json
 import asyncio
+from backend.telegram_notification import check_and_notify_oi_changes
 
 class WebScraper:
     # Class variables to maintain state between refreshes
@@ -356,6 +357,9 @@ class WebScraper:
             
             # Process the data
             processed_data = WebScraper.process_data(rawop, current_price, expiry_date)
+
+            if processed_data and processed_data.get('data'):
+                check_and_notify_oi_changes(processed_data['data'])
             
             if not processed_data:
                 return {
