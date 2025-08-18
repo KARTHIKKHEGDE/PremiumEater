@@ -51,15 +51,7 @@ app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 # Your specific URL with OI data
 OI_URL = "https://www.nseindia.com/option-chain"  # Replace with your actual OI data URL
 
-@app.post("/api/clear")
-async def clear_data():
-    """Clear in-memory OI caches/history (server-side reset)."""
-    try:
-        WebScraper.reset_state()
-        return JSONResponse({"status": "ok"})
-    except Exception as e:
-        logging.exception("Error clearing state")
-        raise HTTPException(status_code=500, detail=f"Failed to clear state: {e}")
+
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
