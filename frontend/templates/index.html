@@ -37,6 +37,13 @@
             </div>
         </div>
         
+        <!-- Controls -->
+        <div class="mb-4 flex justify-end gap-2">
+            <button id="clearBtn" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded border border-red-400">
+                Clear All
+            </button>
+        </div>
+        
         <!-- CALL Options Table -->
         <div class="mb-6">
             <h2 class="text-lg font-bold text-green-400 border-b border-green-500 pb-2">
@@ -345,6 +352,24 @@
         setTimeout(function() {
             window.location.reload();
         }, 30000);
+
+        // Clear All handler: clears UI tables and resets backend state
+        const clearBtn = document.getElementById('clearBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', async () => {
+                if (!confirm('This will clear the table view and reset server-side history. Continue?')) return;
+                // Clear UI tables
+                document.querySelectorAll('table tbody').forEach(tb => tb.innerHTML = '');
+                try {
+                    const res = await fetch('/api/clear', { method: 'POST' });
+                    if (!res.ok) throw new Error('Failed to clear backend');
+                    alert('Cleared successfully. The page will refresh.');
+                    window.location.reload();
+                } catch (e) {
+                    alert('Error clearing backend: ' + (e?.message || e));
+                }
+            });
+        }
     </script>
 </body>
 </html>
