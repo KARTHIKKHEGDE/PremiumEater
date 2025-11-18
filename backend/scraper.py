@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import json
 import asyncio
 from backend.telegram_notification import check_and_notify_oi_changes
+import pytz
 
 class WebScraper:
     # Class variables to maintain state between refreshes
@@ -16,6 +17,7 @@ class WebScraper:
     SYMBOL = "NIFTY"
     STRIKES_TO_SHOW = 3  # Number of strikes above and below ATM
     OI_CHANGE_INTERVALS_MIN = (5, 10, 15, 30, 60, 120)
+    IST = pytz.timezone('Asia/Kolkata')
     
     # User agents to avoid blocking
     USER_AGENTS = [
@@ -141,7 +143,7 @@ class WebScraper:
     @staticmethod
     def process_data(rawop, current_price, expiry_date):
         """Process option chain data and update history"""
-        current_time = datetime.now()
+        current_time = datetime.now(WebScraper.IST)
         
         if rawop is None or current_price is None:
             return None
@@ -299,12 +301,12 @@ class WebScraper:
                 'oi_data': processed_data.get('data', []),
                 'current_price': float(processed_data.get('current_price', 0)),
                 'atm_strike': int(processed_data.get('atm_strike', 0)),
-                'timestamp': processed_data.get('timestamp', datetime.now().strftime("%H:%M:%S")),
+                'timestamp': processed_data.get('timestamp', datetime.now(WebScraper.IST).strftime("%H:%M:%S")),
                 'expiry_date': processed_data.get('expiry_date'),
                 'pcr': float(processed_data.get('pcr', 0)),
                 'total_call_oi': int(processed_data.get('total_call_oi', 0)),
                 'total_put_oi': int(processed_data.get('total_put_oi', 0)),
-                'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                'last_updated': datetime.now(WebScraper.IST).strftime('%Y-%m-%d %H:%M:%S')
             }
             
             print("\n=== Final Response ===")
