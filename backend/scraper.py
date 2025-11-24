@@ -16,7 +16,7 @@ class WebScraper:
     oi_history = {}
     SYMBOL = "NIFTY"
     STRIKES_TO_SHOW = 3  # Number of strikes above and below ATM
-    OI_CHANGE_INTERVALS_MIN = (5, 10, 15, 30, 60, 120)
+    OI_CHANGE_INTERVALS_MIN = (5, 10, 15, 30, 60)
     IST = pytz.timezone('Asia/Kolkata')
     
     # User agents to avoid blocking
