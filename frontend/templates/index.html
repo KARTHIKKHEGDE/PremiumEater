@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NSE OI Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
 </head>
@@ -11,7 +14,12 @@
     <div class="container mx-auto p-4">
         <!-- Market Summary Panel -->
         <div class="bg-blue-900 border border-blue-500 rounded-md p-3 mb-4">
-            <h2 class="text-center font-bold mb-2 text-blue-300">Market Summary</h2>
+            <div class="flex justify-between items-center mb-2">
+                <div class="company-brand-inline">ScalarVerse</div>
+                <h2 class="text-center font-bold text-blue-300 flex-1">Market Summary</h2>
+                <button onclick="openAboutModal()" class="about-button">About</button>
+            </div>
+            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="text-center">
                     <p class="mb-1">
@@ -33,6 +41,27 @@
                         <span class="text-green-400">Calls OI: {{ total_call_oi|number_format }}</span> | 
                         <span class="text-red-400">Puts OI: {{ total_put_oi|number_format }}</span>
                     </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- About Modal -->
+        <div id="aboutModal" class="modal" onclick="closeAboutModal()">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <span class="close-button" onclick="closeAboutModal()">&times;</span>
+                <div class="modal-header">
+                    <div class="company-brand">ScalarVerse</div>
+                    <div class="product-subtitle-modal">PremiumEater</div>
+                </div>
+                <div class="modal-body">
+                    <div class="contact-item-modal">
+                        <span class="contact-label-modal">📧 Email:</span>
+                        <a href="mailto:karthikhegdehulimane@gmail.com" class="contact-link">karthikhegdehulimane@gmail.com</a>
+                    </div>
+                    <div class="contact-item-modal">
+                        <span class="contact-label-modal">🐦 Twitter:</span>
+                        <a href="https://twitter.com/KARTHIKKHEGDE" target="_blank" class="contact-link">@KARTHIKKHEGDE</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -342,6 +371,22 @@
     </div>
 
     <script>
+        // Modal functions
+        function openAboutModal() {
+            document.getElementById('aboutModal').style.display = 'flex';
+        }
+        
+        function closeAboutModal() {
+            document.getElementById('aboutModal').style.display = 'none';
+        }
+        
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeAboutModal();
+            }
+        });
+        
         // Auto-refresh the page every 30 seconds
         setTimeout(function() {
             window.location.reload();
