@@ -101,18 +101,26 @@ class WebScraper:
                         response.encoding = 'utf-8'
                         data = response.json()
                     except Exception as json_error:
-                        logging.error(f"JSON Parse Error: {str(json_error)}")
+                        logging.error(f"JSON Parse Error: {str(json_error)} — Body: {response.text[:500] if hasattr(response, 'text') else 'N/A'}")
                         await asyncio.sleep(retry_delay)
                         continue
                     
+                    if not data:
+                        logging.warning("Empty JSON returned from NSE")
+                        await asyncio.sleep(retry_delay)
+                        continue
+
                     # v3 API may return data under 'filtered' or 'records'
                     if 'filtered' in data and data['filtered'].get('data'):
                         rawop = pd.DataFrame(data['filtered']['data']).fillna(0)
                     elif 'records' in data and 'data' in data.get('records', {}):
-                        logging.info("Using alternative data format (records.data)...")
                         rawop = pd.DataFrame(data['records']['data']).fillna(0)
                     else:
-                        logging.warning(f"NSE data format changed or invalid. Keys: {list(data.keys())}")
+                        logging.warning(
+                            "Unexpected NSE response. Status=%s Body=%s",
+                            response.status_code,
+                            response.text[:500] if hasattr(response, 'text') else str(data)[:500]
+                        )
                         await asyncio.sleep(retry_delay)
                         continue
                     
