@@ -1,4 +1,5 @@
-import httpx
+from curl_cffi import requests as curl_requests
+from curl_cffi.requests.errors import RequestsError
 import pandas as pd
 import random
 import logging
@@ -63,13 +64,13 @@ class WebScraper:
         for attempt in range(max_retries):
             try:
                 client_args = {
-                    "follow_redirects": True,
+                    "impersonate": "chrome116",
                     "timeout": 30.0
                 }
                 if proxy:
                     client_args["proxies"] = {
-                        "http://": proxy,
-                        "https://": proxy
+                        "http": proxy,
+                        "https": proxy
                     }
                     logging.info(f"Using proxy: {proxy}")
 
@@ -85,7 +86,7 @@ class WebScraper:
 
                 api_headers = {**base_headers, "Cookie": cookies}
 
-                async with httpx.AsyncClient(**client_args) as client:
+                async with curl_requests.AsyncSession(**client_args) as client:
                     response = await client.get(api_url, headers=api_headers, timeout=15)
 
                     if response.status_code != 200:
@@ -131,7 +132,7 @@ class WebScraper:
                     logging.info(f"Successfully fetched option chain. Current {WebScraper.SYMBOL}: {current_price}")
                     return rawop, current_price, expiry_date
                     
-            except (httpx.TimeoutException, httpx.NetworkError) as e:
+            except RequestsError as e:
                 last_exception = e
                 logging.warning(f"Network error on attempt {attempt+1}: {str(e)}")
                 await asyncio.sleep(retry_delay)
