@@ -36,6 +36,10 @@ WARMUP_SEQUENCE = [
     "https://www.nseindia.com/option-chain",
 ]
 
+# --- HARDCODED COOKIE ---
+# Paste your NSE cookie string inside the quotes below
+HARDCODED_COOKIE = "browse-url=%2Fmarket-data%2Fclosing-auction-session; AKA_A2=A; _abck=DA0EA27AA4F463B429FB3AC865AC6FF4~0~YAAQtJUjFxZDkqSfAQAAJHD01xCY4WDx2u0n7quFxRQSoP2z9rzqaURDEA7WB7hjj8rMQMyncom9ZzvcIXDnv+YvydQczeZDb4ZIN9Ddex1ZVKepEcQvEani0o+UL4b1TR7PbxF8TIafVk7N41uNjd19MVvVREPvu4dYT8C9gccJgMr+UiIFNfIe/2ByZoQqCjU3J8jXdm2/E5J28nLYA8/T06PWZgYJxqtS7yGylzt83Nn473tPCB5XDiGWG1B1/ouaVBMsdHyENDer1/4YGQSh1RP2sZ4CJv2kGtqPnCZc+x+60/jnM9cYrRGbUQeHhJKKb661afoqDQ6HDZKKwWf2NpVbJ1lF8ZWbsVKXHQgUg1OMWIGuVw/08QNIQdAcUbDlpG4Tgl21y4PkplPs8CblBTa53fmDc5qw5s94zrTgvXa5sB8IFfH2sR+Bk0xUx9EqsBpefbX/ERAvYxVVl5rAUGmYvZB+PGmULcr1pBeSndHkfJ4+BJqbIE73Q0iZrODZfJp7qm1brfoiIdlrGSTLm76lX0Kitk4Gmh4qIsthdzOFV0DmLSMVbaFMywZpJLC21gbzBKKr3Tv5r3db87J0I0/7HGTr1VofJDeWn+S88YV9teNBgdnklj74ueRtvtoYouoKyQ6zDMvzEuN/qnFwDyUQx7fOV1I4TwVm3Yijwik8PBiRYNQc2Hf68mzXblG3~-1~-1~-1~AAQAAAAG%2f%2f%2f%2f%2f2eAmmTUyQ1O2g1NTIKTO%2fAaWhb0DWbvDNs6MA5Ro3f%2fXskvBcXQrZ75CshfxjdpYcNWDZHlNRWqKLALJCrmW7DwNNM+hiegI2nB+FnUR75MPsqJiV2KG6%2f2Aht0yxEiAFtTw7M%3d~-1; bm_mi=7A5A66C6474FBE9C51963064CC7F865D~YAAQtJUjF+FEkqSfAQAAD5H01wDH0BSxvskWQrhpTguAHMPDZrZshP2ByWu3flj6TsfTU/2vqCAtyur2kZiytbLsO0hgqwgP6JOPnEHt1JAecOn0O9A57e8PatM87IMJhn7CJv6mwh+FCdzT2y9j7sYYxoXOvvqnL30RQbEijM1DwOABHn2ep5Ou0MKmPW+4P/c8fE/Ae5wWLS55WUdp6QNDmhNuQ6BArdkahTcdKtlJPe11b7UBTRrPbURHeRYTK4vZFdPeQLCT/ObTFelyBnZOh/7vrQJ/6LY8WGo4PdgRAVlBSNHcPBkk0BevlzcbpKvVpTLsaBvfhR+W~1; bm_sz=592BBFD86B42CCDC978A3BFBE45B153B~YAAQtJUjF+NEkqSfAQAAD5H01wDeEwfuq4wbefPc0mci5NUaA0/UiWizcNDBo4JcJyWxXvnN/8FaY+VUv9s1bR/h9gYXlncT2CkIS99KOHax8g2aGnP04J+O7e3NUdBd09iY+zdFMEb6lyzzCyfKeAvZ6ul+RWk3R88MVxL95ObdEAA8CdlR4Zm/JJ/5ed780YVYPd8IYzaWVp+LvIpTn3UrGmvhxjpB2n0drYv2T/zKqeUKtZWU0CQozUUxJbRYHQE7oyvzZbszWyA9MB/DfjPuq8P7AiF55ARq2z9UYN+SQ5A3gLHefRRSzRvQskXDUpoq8AsUSJGjCn0jVhh5W2v5brVcNgzjiTeF/rOhnAwc3UtHnQO0uZUObpaRt+JBwSj+txijxR8bXXSknhlys0joom0XTjtR4h3r0r6oBW0RDzIFBeOYSUZGPXKax2NI9E0=~3486772~4405045; ak_bmsc=EDE797A72FF7714F72790D4074D0B298~000000000000000000000000000000~YAAQtJUjFwBFkqSfAQAACJL01wC/gH+JHR7vRGpi/cO5bfp51Z4CKdyaYAHxpTc4+LWqxb1m81SCNeGyBaexcN/dLWOMPIX2D2qryW73ZPOmIL8VdMDEb9vqVxMywwYtzQ5pIsLlKM7p1Jw9yZLZQ5Xywzw0ariLx5P82M5YkMRYFo6jmj7k44WKf/7ogGBKoh/0n4+pSW+answNLQBGE+ja2mpIs/u7jNN3auRdZTJ+GhIMTt+MxA6jmthLQ/Na6aonV3YHgeU+7agT7y6VUn1wKhNKh6vaVBvJ0x6k8qT9km+sgA4aSCkeRgp9IZAxDFrJhEmY/yMPHhY17F9p+NrksWdCX2ZGgAMQqs+mmhGbBoTcjMzqAAQqWL0IrTW9ESJ549IQFjHHynsldrgBe3THBjw7Qi1apNUyuPeTMGMN2qiQxPtZ8t2bITaSWJZS5d8Rq/IInvf3B+WL1BGDLQR63NcLFTXxTjvW3TDCWLZkV4Fe8mh9sWMkSehpxl0D4D4Lld0=; bm_sv=26FA9A37601EAB9B9CEE126EE272F1D8~YAAQtJUjF0JFkqSfAQAACJX01wBAAxqhJFNpAimAg/JFfM9QyIM7X8T1yI8H4v6TNmKrXtBLGb47NIwT18krl+/e9KbogrKnCzwzjzyhNfsARl7wYKv5CWIukNwcWNdmqc5tDHOxiY4YP8M8wJRK2UWDJrTkQa5cOGmZgKnDpMOP1uWY/23kZ/3i5tNQsKZL+laXQKS6bn9XbfmGwfn1hchJelIEOeSd2oDqPPFXYNWXirHaw4wOLZZVeTJOqG5nZ9vW~1"
+
 
 class CookieManager:
     """Thread-safe async singleton that manages NSE session cookies."""
@@ -74,8 +78,8 @@ class CookieManager:
             reason = "forced refresh" if force else ("stale/expired" if is_stale else "first fetch")
             logger.info(f"Refreshing NSE cookies ({reason})...")
 
-            # --- Strategy 1: Environment variable ---
-            env_cookies = os.environ.get("NSE_COOKIES", "").strip()
+            # --- Strategy 1: Hardcoded or Environment variable ---
+            env_cookies = HARDCODED_COOKIE.strip() or os.environ.get("NSE_COOKIES", "").strip()
             if env_cookies:
                 cls._cookie_string = env_cookies
                 cls._fetched_at = time.time()
