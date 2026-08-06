@@ -15,7 +15,11 @@ Usage:
 import asyncio
 import logging
 import time
+import os
 from typing import Optional
+
+# Ensure Playwright looks for browsers in the local directory (critical for Render)
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
 
 logger = logging.getLogger(__name__)
 
