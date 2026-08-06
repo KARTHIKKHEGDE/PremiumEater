@@ -113,8 +113,9 @@ async def home(request: Request):
 
     if data.get("status") == "success":
         return templates.TemplateResponse(
-            "index.html",
-            {
+            request=request,
+            name="index.html",
+            context={
                 "request": request,
                 "oi_data": data.get("oi_data", []),
                 "current_price": data.get("current_price", 0),
@@ -129,10 +130,10 @@ async def home(request: Request):
             },
         )
     else:
-        # Data not yet available or scraper failed — show UI with loading state
         return templates.TemplateResponse(
-            "index.html",
-            {
+            request=request,
+            name="index.html",
+            context={
                 "request": request,
                 "oi_data": [],
                 "current_price": 0,
@@ -174,8 +175,9 @@ async def health_check():
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global error: {str(exc)}")
     return templates.TemplateResponse(
-        "error.html",
-        {"request": request, "error": "Service temporarily unavailable. Please try again later."},
+        request=request,
+        name="error.html",
+        context={"request": request, "error": "Service temporarily unavailable. Please try again later."},
         status_code=500,
     )
 
