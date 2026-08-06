@@ -9,9 +9,50 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <style>
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999; flex-direction: column; gap: 1rem;
+        }
+        .loading-overlay.hidden { display: none; }
+        .spinner {
+            width: 48px; height: 48px;
+            border: 4px solid rgba(59,130,246,0.3);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        /* Status banner */
+        .status-banner {
+            padding: 0.5rem 1rem; text-align: center; font-size: 0.85rem;
+            border-radius: 0.375rem; margin-bottom: 0.75rem;
+        }
+        .status-banner.error { background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+        .status-banner.loading { background: rgba(59,130,246,0.2); color: #93c5fd; border: 1px solid rgba(59,130,246,0.4); }
+        .status-banner.success { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+        .status-banner.hidden { display: none; }
+        /* Pulse for live indicator */
+        .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; margin-right: 6px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    </style>
 </head>
 <body class="bg-black text-white font-mono">
+
+    <!-- Loading overlay (shown when no data yet) -->
+    <div id="loadingOverlay" class="loading-overlay {% if data_available %}hidden{% endif %}">
+        <div class="spinner"></div>
+        <p class="text-blue-300 text-lg">Fetching NSE data…</p>
+        <p class="text-gray-400 text-sm">First load may take up to 30 seconds</p>
+    </div>
+
     <div class="container mx-auto p-4">
+        <!-- Status Banner -->
+        <div id="statusBanner" class="status-banner hidden"></div>
+
         <!-- Market Summary Panel -->
         <div class="bg-blue-900 border border-blue-500 rounded-md p-3 mb-4">
             <div class="flex justify-between items-center mb-2">
@@ -34,23 +75,23 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="text-center">
                     <p class="mb-1">
-                        <span class="font-bold">Underlying:</span> {{ current_price|number_format(2) }} | 
-                        <span class="font-bold">ATM Strike:</span> {{ atm_strike }}
+                        <span class="font-bold">Underlying:</span> <span id="currentPrice">{{ current_price|number_format(2) }}</span> | 
+                        <span class="font-bold">ATM Strike:</span> <span id="atmStrike">{{ atm_strike }}</span>
                     </p>
                     <p>
-                        <span class="font-bold">Expiry:</span> {% if expiry_date %}{{ expiry_date }}{% else %}Unknown{% endif %}
+                        <span class="font-bold">Expiry:</span> <span id="expiryDate">{% if expiry_date %}{{ expiry_date }}{% else %}Unknown{% endif %}</span>
                     </p>
                 </div>
                 <div class="text-center border-l border-blue-600 pl-4">
                     <p class="mb-1">
                         <span class="font-bold">PCR (7 Strikes):</span> 
-                        <span class="{% if pcr > 1.2 %}text-green-400{% elif pcr < 0.8 %}text-red-400{% else %}text-yellow-300{% endif %} font-bold">
+                        <span id="pcrValue" class="{% if pcr > 1.2 %}text-green-400{% elif pcr < 0.8 %}text-red-400{% else %}text-yellow-300{% endif %} font-bold">
                             {{ pcr|number_format(2) }}
                         </span>
                     </p>
                     <p>
-                        <span class="text-green-400">Calls OI: {{ total_call_oi|number_format }}</span> | 
-                        <span class="text-red-400">Puts OI: {{ total_put_oi|number_format }}</span>
+                        <span class="text-green-400">Calls OI: <span id="totalCallOi">{{ total_call_oi|number_format }}</span></span> | 
+                        <span class="text-red-400">Puts OI: <span id="totalPutOi">{{ total_put_oi|number_format }}</span></span>
                     </p>
                 </div>
             </div>
@@ -63,8 +104,8 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <!-- CALL Options Table -->
             <div class="mb-6">
-            <h2 class="text-lg font-bold text-green-400 border-b border-green-500 pb-2">
-                CALL Options OI (NIFTY - ATM: {{ atm_strike }}) @ {{ timestamp }}
+            <h2 id="callHeader" class="text-lg font-bold text-green-400 border-b border-green-500 pb-2">
+                CALL Options OI (NIFTY - ATM: <span id="callAtm">{{ atm_strike }}</span>) @ <span id="callTime">{{ timestamp }}</span>
             </h2>
             <div class="overflow-x-auto">
                 <table class="min-w-full border-collapse">
@@ -80,7 +121,7 @@
                             <th class="py-5 px-4 border border-green-500 bg-green-900 text-right">1h%</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="callTableBody">
                         {% for item in oi_data %}
                             <tr>
                                 {% if item.is_atm %}
@@ -194,8 +235,8 @@
         
         <!-- PUT Options Table -->
         <div class="mb-6">
-            <h2 class="text-lg font-bold text-red-400 border-b border-red-500 pb-2">
-                PUT Options OI (NIFTY - ATM: {{ atm_strike }}) @ {{ timestamp }}
+            <h2 id="putHeader" class="text-lg font-bold text-red-400 border-b border-red-500 pb-2">
+                PUT Options OI (NIFTY - ATM: <span id="putAtm">{{ atm_strike }}</span>) @ <span id="putTime">{{ timestamp }}</span>
             </h2>
             <div class="overflow-x-auto">
                 <table class="min-w-full border-collapse">
@@ -211,7 +252,7 @@
                             <th class="py-5 px-4 border border-red-500 bg-red-900 text-right">1h%</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="putTableBody">
                         {% for item in oi_data %}
                             <tr>
                                 {% if item.is_atm %}
@@ -325,15 +366,149 @@
         </div>
         
         <div class="text-sm text-gray-500 mt-4">
-            <p id="lastUpdated">Data auto-refreshes every 30 seconds. Last updated: {{ last_updated }}</p>
+            <p id="lastUpdated"><span class="live-dot"></span>Data auto-refreshes every 30 seconds. Last updated: <span id="lastUpdatedTime">{{ last_updated }}</span></p>
         </div>
     </div>
 
     <script>
-        // Auto-refresh the page every 30 seconds
-        setTimeout(function() {
-            window.location.reload();
-        }, 30000);
+        // ---------------------------------------------------------------
+        // AJAX polling — update tables without full page reload
+        // ---------------------------------------------------------------
+        const POLL_INTERVAL = 30000; // 30 seconds
+
+        function formatNumber(val, decimals) {
+            if (val == null) return '';
+            return Number(val).toLocaleString('en-IN', {
+                minimumFractionDigits: decimals || 0,
+                maximumFractionDigits: decimals || 0
+            });
+        }
+
+        function pctCell(val, border, thresholds) {
+            const [t1] = thresholds || [5];
+            if (val == null || val === undefined) return `<td class="py-5 px-4 border ${border} text-right">N/A</td>`;
+            const abs = Math.abs(val);
+            const bold = abs > t1 ? ' font-bold' : '';
+            const color = val > 0 ? 'text-green-400' : val < 0 ? 'text-red-400' : '';
+            const sign = val > 0 ? '+' : '';
+            return `<td class="py-5 px-4 border ${border} text-right${bold} ${color}">${sign}${val.toFixed(2)}%</td>`;
+        }
+
+        function buildCallRow(item, atmStrike) {
+            const border = 'border-green-500';
+            let strikeClass = 'text-white';
+            let bold = '';
+            if (item.is_atm) { strikeClass = 'text-yellow-300'; bold = ' font-bold'; }
+            else if (item.strike < atmStrike) { strikeClass = 'text-green-400'; }
+            else { strikeClass = 'text-red-400'; }
+
+            let chgClass = '';
+            let chgSign = '';
+            if (item.call_oi_change > 0) { chgClass = 'text-green-400'; chgSign = '+'; }
+            else if (item.call_oi_change < 0) { chgClass = 'text-red-400'; }
+
+            return `<tr>
+                <td class="py-5 px-4 border ${border} ${strikeClass}${bold}">${item.strike}</td>
+                <td class="py-5 px-4 border ${border} text-right">${formatNumber(item.call_oi)}</td>
+                <td class="py-5 px-4 border ${border} text-right ${chgClass}">${chgSign}${formatNumber(item.call_oi_change)}</td>
+                ${pctCell(item.call_pct_5m, border, [5])}
+                ${pctCell(item.call_pct_10m, border, [10])}
+                ${pctCell(item.call_pct_15m, border, [15])}
+                ${pctCell(item.call_pct_30m, border, [20])}
+                ${pctCell(item.call_pct_60m, border, [25])}
+            </tr>`;
+        }
+
+        function buildPutRow(item, atmStrike) {
+            const border = 'border-red-500';
+            let strikeClass = 'text-white';
+            let bold = '';
+            if (item.is_atm) { strikeClass = 'text-yellow-300'; bold = ' font-bold'; }
+            else if (item.strike > atmStrike) { strikeClass = 'text-green-400'; }
+            else { strikeClass = 'text-red-400'; }
+
+            let chgClass = '';
+            let chgSign = '';
+            if (item.put_oi_change > 0) { chgClass = 'text-green-400'; chgSign = '+'; }
+            else if (item.put_oi_change < 0) { chgClass = 'text-red-400'; }
+
+            return `<tr>
+                <td class="py-5 px-4 border ${border} ${strikeClass}${bold}">${item.strike}</td>
+                <td class="py-5 px-4 border ${border} text-right">${formatNumber(item.put_oi)}</td>
+                <td class="py-5 px-4 border ${border} text-right ${chgClass}">${chgSign}${formatNumber(item.put_oi_change)}</td>
+                ${pctCell(item.put_pct_5m, border, [5])}
+                ${pctCell(item.put_pct_10m, border, [10])}
+                ${pctCell(item.put_pct_15m, border, [15])}
+                ${pctCell(item.put_pct_30m, border, [20])}
+                ${pctCell(item.put_pct_60m, border, [25])}
+            </tr>`;
+        }
+
+        function showBanner(message, type) {
+            const banner = document.getElementById('statusBanner');
+            banner.textContent = message;
+            banner.className = `status-banner ${type}`;
+        }
+
+        function hideBanner() {
+            document.getElementById('statusBanner').className = 'status-banner hidden';
+        }
+
+        async function refreshData() {
+            try {
+                const resp = await fetch('/api/data');
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+
+                if (data.status !== 'success') {
+                    showBanner(data.message || 'Waiting for data from NSE…', 'loading');
+                    return;
+                }
+
+                // Hide loading overlay on first successful fetch
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                hideBanner();
+
+                const oiData = data.oi_data || [];
+                const atm = data.atm_strike || 0;
+                const ts = data.timestamp || '—';
+
+                // Update summary
+                document.getElementById('currentPrice').textContent = formatNumber(data.current_price, 2);
+                document.getElementById('atmStrike').textContent = atm;
+                document.getElementById('expiryDate').textContent = data.expiry_date || 'Unknown';
+                document.getElementById('callAtm').textContent = atm;
+                document.getElementById('callTime').textContent = ts;
+                document.getElementById('putAtm').textContent = atm;
+                document.getElementById('putTime').textContent = ts;
+                document.getElementById('lastUpdatedTime').textContent = data.last_updated || '';
+
+                // PCR
+                const pcr = data.pcr || 0;
+                const pcrEl = document.getElementById('pcrValue');
+                pcrEl.textContent = pcr.toFixed(2);
+                pcrEl.className = (pcr > 1.2 ? 'text-green-400' : pcr < 0.8 ? 'text-red-400' : 'text-yellow-300') + ' font-bold';
+
+                document.getElementById('totalCallOi').textContent = formatNumber(data.total_call_oi);
+                document.getElementById('totalPutOi').textContent = formatNumber(data.total_put_oi);
+
+                // Rebuild tables
+                document.getElementById('callTableBody').innerHTML = oiData.map(r => buildCallRow(r, atm)).join('');
+                document.getElementById('putTableBody').innerHTML = oiData.map(r => buildPutRow(r, atm)).join('');
+
+            } catch (err) {
+                console.error('AJAX refresh failed:', err);
+                showBanner('Connection issue — retrying in 30s…', 'error');
+            }
+        }
+
+        // Poll every 30 seconds via AJAX (no full page reload)
+        setInterval(refreshData, POLL_INTERVAL);
+
+        // Also try immediately if we loaded with no data
+        {% if not data_available %}
+        setTimeout(refreshData, 3000);
+        {% endif %}
     </script>
 </body>
 </html>

@@ -44,13 +44,14 @@ def check_and_notify_oi_changes(oi_data: list):
             send_telegram_message(msg)
 
 
-# Simulated test data
-test_oi_data = [
-    {"strike": 5200, "call_pct_oi": 35, "put_pct_oi": 10},
-    {"strike": 5250, "call_pct_oi": 5, "put_pct_oi": 32},
-    {"strike": 5300, "call_pct_oi": 15, "put_pct_oi": 20},  # should not trigger
-]
+if __name__ == "__main__":
+    # Simulated test data
+    test_oi_data = [
+        {"strike": 5200, "call_pct_oi": 35, "put_pct_oi": 10},
+        {"strike": 5250, "call_pct_oi": 5, "put_pct_oi": 32},
+        {"strike": 5300, "call_pct_oi": 15, "put_pct_oi": 20},  # should not trigger
+    ]
 
-# Call your function with the test data
-check_and_notify_oi_changes(test_oi_data)
+    # Call your function with the test data
+    check_and_notify_oi_changes(test_oi_data)
 

@@ -5,6 +5,7 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED 1
 
 # Install system dependencies required by Playwright (Chromium)
+# These are lightweight and only ~30MB. Chromium itself is installed conditionally.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libnss3 \
     libnspr4 \
@@ -27,8 +28,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install the Chromium browser binary
-RUN playwright install chromium
+# Install Chromium browser binary (optional — only needed if NSE_COOKIES env var is NOT set)
+# Comment out the next line to save ~400MB if you always use NSE_COOKIES env var
+RUN playwright install chromium || echo "Playwright install failed — will use NSE_COOKIES env var"
 
 # Copy the rest of the application code
 COPY . .

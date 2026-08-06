@@ -1,15 +1,19 @@
 """
 NSE Cookie Manager
 ------------------
-Automatically refreshes NSE session cookies using a headless Playwright browser.
-Cookies are cached in memory and refreshed when they expire (TTL: 90 minutes) or
-when the caller explicitly requests a refresh after a 401/403/non-200 response.
+Manages NSE session cookies with a two-tier strategy:
+
+1. **Environment variable** (preferred): Set `NSE_COOKIES` with a semicolon-separated
+   cookie string from your browser's DevTools. Zero RAM cost, works on any host.
+
+2. **Playwright fallback**: If `NSE_COOKIES` is not set, attempts to launch a headless
+   Chromium browser to fetch cookies automatically. Requires ~300-500MB RAM.
 
 Usage:
     from backend.cookie_manager import CookieManager
 
     cookie_str = await CookieManager.get_cookies()           # Returns cached or fresh cookies
-    cookie_str = await CookieManager.get_cookies(force=True) # Forces a browser refresh
+    cookie_str = await CookieManager.get_cookies(force=True) # Forces a refresh
 """
 
 import asyncio
@@ -19,7 +23,7 @@ import os
 from typing import Optional
 
 # Ensure Playwright looks for browsers in the local directory (critical for Render)
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
+os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +44,17 @@ class CookieManager:
     _fetched_at: float = 0.0
     _lock: asyncio.Lock = asyncio.Lock()
     _playwright_available: Optional[bool] = None  # cached capability check
+    _source: str = "none"  # Track where cookies came from: "env", "playwright", "none"
 
     @classmethod
     async def get_cookies(cls, force: bool = False) -> Optional[str]:
         """
         Return a valid NSE cookie string.
+
+        Priority:
+          1. NSE_COOKIES environment variable (always checked first on force/stale)
+          2. Playwright headless browser (fallback)
+          3. Previously cached cookies (last resort)
 
         Args:
             force: If True, bypass cache and refresh immediately.
@@ -58,23 +68,33 @@ class CookieManager:
             is_stale = age >= COOKIE_TTL_SECONDS
 
             if not force and cls._cookie_string and not is_stale:
-                logger.debug(f"Using cached NSE cookies (age: {age:.0f}s)")
+                logger.debug(f"Using cached NSE cookies (age: {age:.0f}s, source: {cls._source})")
                 return cls._cookie_string
 
             reason = "forced refresh" if force else ("stale/expired" if is_stale else "first fetch")
             logger.info(f"Refreshing NSE cookies ({reason})...")
 
-            new_cookies = await cls._fetch_via_playwright()
+            # --- Strategy 1: Environment variable ---
+            env_cookies = os.environ.get("NSE_COOKIES", "").strip()
+            if env_cookies:
+                cls._cookie_string = env_cookies
+                cls._fetched_at = time.time()
+                cls._source = "env"
+                logger.info(f"Using NSE cookies from NSE_COOKIES env var ({len(env_cookies)} chars).")
+                return cls._cookie_string
 
+            # --- Strategy 2: Playwright headless browser ---
+            new_cookies = await cls._fetch_via_playwright()
             if new_cookies:
                 cls._cookie_string = new_cookies
                 cls._fetched_at = time.time()
+                cls._source = "playwright"
                 logger.info("NSE cookies refreshed successfully via Playwright.")
                 return cls._cookie_string
 
-            # Playwright failed — keep old cookies if they exist
+            # --- Fallback: reuse old cookies if they exist ---
             if cls._cookie_string:
-                logger.warning("Playwright refresh failed; reusing existing cookies.")
+                logger.warning("All refresh methods failed; reusing existing cookies.")
                 return cls._cookie_string
 
             logger.error("Could not obtain NSE cookies via any method.")
@@ -89,7 +109,7 @@ class CookieManager:
             if cls._playwright_available is not False:
                 logger.warning(
                     "Playwright not installed. "
-                    "Run: pip install playwright && playwright install chromium"
+                    "Set NSE_COOKIES env var, or run: pip install playwright && playwright install chromium"
                 )
                 cls._playwright_available = False
             return None
@@ -166,3 +186,8 @@ class CookieManager:
     def is_available(cls) -> bool:
         """Returns True if Playwright is installed and usable."""
         return cls._playwright_available is not False
+
+    @classmethod
+    def get_source(cls) -> str:
+        """Returns the source of current cookies: 'env', 'playwright', or 'none'."""
+        return cls._source

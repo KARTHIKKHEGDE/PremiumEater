@@ -15,5 +15,7 @@ wheel>=0.41.2
 gunicorn>=21.2.0
 requests>=2.32.3
 pytz>=2024.0
-playwright>=1.40.0
 
+# Optional: Only needed if NOT using NSE_COOKIES env var.
+# Remove to save ~400MB in Docker image.
+playwright>=1.40.0
