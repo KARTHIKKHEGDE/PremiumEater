@@ -1,0 +1,164 @@
+"""
+NSE Cookie Manager
+------------------
+Automatically refreshes NSE session cookies using a headless Playwright browser.
+Cookies are cached in memory and refreshed when they expire (TTL: 90 minutes) or
+when the caller explicitly requests a refresh after a 401/403/non-200 response.
+
+Usage:
+    from backend.cookie_manager import CookieManager
+
+    cookie_str = await CookieManager.get_cookies()           # Returns cached or fresh cookies
+    cookie_str = await CookieManager.get_cookies(force=True) # Forces a browser refresh
+"""
+
+import asyncio
+import logging
+import time
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+# How long (seconds) cookies stay valid before auto-refresh
+COOKIE_TTL_SECONDS = 90 * 60  # 90 minutes
+
+# URLs to warm up in sequence before capturing cookies
+WARMUP_SEQUENCE = [
+    "https://www.nseindia.com",
+    "https://www.nseindia.com/option-chain",
+]
+
+
+class CookieManager:
+    """Thread-safe async singleton that manages NSE session cookies."""
+
+    _cookie_string: Optional[str] = None
+    _fetched_at: float = 0.0
+    _lock: asyncio.Lock = asyncio.Lock()
+    _playwright_available: Optional[bool] = None  # cached capability check
+
+    @classmethod
+    async def get_cookies(cls, force: bool = False) -> Optional[str]:
+        """
+        Return a valid NSE cookie string.
+
+        Args:
+            force: If True, bypass cache and refresh immediately.
+
+        Returns:
+            A semicolon-separated cookie string ready to use in the Cookie header,
+            or None if all refresh attempts fail.
+        """
+        async with cls._lock:
+            age = time.time() - cls._fetched_at
+            is_stale = age >= COOKIE_TTL_SECONDS
+
+            if not force and cls._cookie_string and not is_stale:
+                logger.debug(f"Using cached NSE cookies (age: {age:.0f}s)")
+                return cls._cookie_string
+
+            reason = "forced refresh" if force else ("stale/expired" if is_stale else "first fetch")
+            logger.info(f"Refreshing NSE cookies ({reason})...")
+
+            new_cookies = await cls._fetch_via_playwright()
+
+            if new_cookies:
+                cls._cookie_string = new_cookies
+                cls._fetched_at = time.time()
+                logger.info("NSE cookies refreshed successfully via Playwright.")
+                return cls._cookie_string
+
+            # Playwright failed — keep old cookies if they exist
+            if cls._cookie_string:
+                logger.warning("Playwright refresh failed; reusing existing cookies.")
+                return cls._cookie_string
+
+            logger.error("Could not obtain NSE cookies via any method.")
+            return None
+
+    @classmethod
+    async def _fetch_via_playwright(cls) -> Optional[str]:
+        """Launch a headless Chromium browser, warm up NSE, and capture cookies."""
+        try:
+            from playwright.async_api import async_playwright, TimeoutError as PWTimeout
+        except ImportError:
+            if cls._playwright_available is not False:
+                logger.warning(
+                    "Playwright not installed. "
+                    "Run: pip install playwright && playwright install chromium"
+                )
+                cls._playwright_available = False
+            return None
+
+        cls._playwright_available = True
+
+        try:
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                    ],
+                )
+
+                context = await browser.new_context(
+                    user_agent=(
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/151.0.0.0 Safari/537.36"
+                    ),
+                    locale="en-US",
+                    viewport={"width": 1280, "height": 800},
+                    extra_http_headers={
+                        "Accept-Language": "en-US,en;q=0.7",
+                        "sec-gpc": "1",
+                    },
+                )
+
+                page = await context.new_page()
+
+                # Step through the warm-up sequence
+                for url in WARMUP_SEQUENCE:
+                    try:
+                        logger.debug(f"Warming up: {url}")
+                        await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+                        await asyncio.sleep(2)
+                    except PWTimeout:
+                        logger.warning(f"Timeout warming up {url}, continuing...")
+                    except Exception as e:
+                        logger.warning(f"Error warming up {url}: {e}, continuing...")
+
+                # Capture all cookies from the context
+                cookies = await context.cookies()
+                await browser.close()
+
+                if not cookies:
+                    logger.warning("Playwright returned no cookies.")
+                    return None
+
+                cookie_str = "; ".join(
+                    f"{c['name']}={c['value']}" for c in cookies
+                )
+                logger.info(f"Captured {len(cookies)} cookies from NSE.")
+                return cookie_str
+
+        except Exception as e:
+            logger.error(f"Playwright browser session failed: {e}")
+            return None
+
+    @classmethod
+    def invalidate(cls) -> None:
+        """
+        Mark cookies as invalid so the next call to get_cookies() triggers a refresh.
+        Call this when you receive a non-200 response from NSE.
+        """
+        cls._fetched_at = 0.0
+        logger.info("NSE cookie cache invalidated.")
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """Returns True if Playwright is installed and usable."""
+        return cls._playwright_available is not False

@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import json
 import asyncio
 from backend.telegram_notification import check_and_notify_oi_changes
+from backend.cookie_manager import CookieManager
 import pytz
 
 class WebScraper:
@@ -21,35 +22,44 @@ class WebScraper:
     
     # User agents to avoid blocking
     USER_AGENTS = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
         "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
-    ]    
+    ]
 
     @staticmethod
     async def fetch_nse_data() -> Tuple[Optional[pd.DataFrame], Optional[float], Optional[datetime.date]]:
-        """Fetch option chain data from NSE with retry logic and fresh cookies"""
-        home_url = "https://www.nseindia.com"
+        """Fetch option chain data from NSE with automatic cookie refresh via CookieManager."""
         option_chain_url = "https://www.nseindia.com/option-chain"
-        api_url = f"https://www.nseindia.com/api/option-chain-indices?symbol={WebScraper.SYMBOL}"
-        
+        # v3 API endpoint
+        api_url = f"https://www.nseindia.com/api/option-chain-v3?type=Indices&symbol={WebScraper.SYMBOL}"
+
         proxy = os.environ.get("HTTP_PROXY", None)
-        
-        headers = {
-            "User-Agent": random.choice(WebScraper.USER_AGENTS),
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "en-US,en;q=0.9",
+
+        base_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "Referer": option_chain_url,
-            "DNT": "1",
+            "sec-ch-ua": '"Not=A?Brand";v="99", "Brave";v="151", "Chromium";v="151"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "sec-gpc": "1",
+            "priority": "u=1, i",
             "Pragma": "no-cache"
         }
         
         max_retries = 3
         retry_delay = 2
         last_exception = None
-        
+
         for attempt in range(max_retries):
             try:
                 client_args = {
@@ -58,29 +68,31 @@ class WebScraper:
                 }
                 if proxy:
                     client_args["proxies"] = {
-                        "http://": proxy, 
+                        "http://": proxy,
                         "https://": proxy
                     }
                     logging.info(f"Using proxy: {proxy}")
-                
+
                 logging.info(f"NSE API Attempt {attempt+1}/{max_retries}")
-                
+
+                # On retries after the first attempt, force a fresh cookie fetch
+                force_refresh = (attempt > 0)
+                cookies = await CookieManager.get_cookies(force=force_refresh)
+                if not cookies:
+                    logging.warning("CookieManager returned no cookies; skipping attempt.")
+                    await asyncio.sleep(retry_delay)
+                    continue
+
+                api_headers = {**base_headers, "Cookie": cookies}
+
                 async with httpx.AsyncClient(**client_args) as client:
-                    # --- Fresh cookies setup ---
-                    await client.get(home_url, headers=headers, timeout=15)
-                    await asyncio.sleep(1)
-                    await client.get(option_chain_url, headers=headers, timeout=15)
-                    await asyncio.sleep(1)
-                    
-                    # API request with fresh cookies
-                    api_headers = headers.copy()
-                    api_headers['Accept'] = 'application/json'
-                    api_headers['X-Requested-With'] = 'XMLHttpRequest'
-                    
                     response = await client.get(api_url, headers=api_headers, timeout=15)
-                    
+
                     if response.status_code != 200:
-                        logging.warning(f"NSE API Error: {response.status_code}")
+                        logging.warning(
+                            f"NSE API Error: {response.status_code} — invalidating cookies."
+                        )
+                        CookieManager.invalidate()  # Force browser refresh on next attempt
                         await asyncio.sleep(retry_delay)
                         continue
                     
@@ -92,16 +104,16 @@ class WebScraper:
                         await asyncio.sleep(retry_delay)
                         continue
                     
-                    if 'filtered' not in data:
-                        if 'records' in data and 'data' in data['records']:
-                            logging.info("Using alternative data format...")
-                            rawop = pd.DataFrame(data['records']['data']).fillna(0)
-                        else:
-                            logging.warning("NSE data format changed or invalid.")
-                            await asyncio.sleep(retry_delay)
-                            continue
-                    else:
+                    # v3 API may return data under 'filtered' or 'records'
+                    if 'filtered' in data and data['filtered'].get('data'):
                         rawop = pd.DataFrame(data['filtered']['data']).fillna(0)
+                    elif 'records' in data and 'data' in data.get('records', {}):
+                        logging.info("Using alternative data format (records.data)...")
+                        rawop = pd.DataFrame(data['records']['data']).fillna(0)
+                    else:
+                        logging.warning(f"NSE data format changed or invalid. Keys: {list(data.keys())}")
+                        await asyncio.sleep(retry_delay)
+                        continue
                     
                     current_price = data['records']['underlyingValue']
                     
