@@ -512,9 +512,10 @@
         setInterval(refreshData, POLL_INTERVAL);
 
         // Also try immediately if we loaded with no data
-        {% if not data_available %}
-        setTimeout(refreshData, 3000);
-        {% endif %}
+        const isDataAvailable = document.getElementById('loadingOverlay').classList.contains('hidden');
+        if (!isDataAvailable) {
+            setTimeout(refreshData, 3000);
+        }
     </script>
 </body>
 </html>
