@@ -11,7 +11,11 @@ import locale
 import logging
 import asyncio
 from datetime import datetime
+from dotenv import load_dotenv
 from backend.scraper import WebScraper
+
+# Load .env before anything else so NSE_COOKIES etc. are available
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -158,14 +162,47 @@ async def api_data():
     return JSONResponse(content=data)
 
 
+# ---------------------------------------------------------------------------
+# Cookie injection endpoint — update NSE cookies without restarting the server
+# ---------------------------------------------------------------------------
+class CookiePayload(BaseModel):
+    cookies: str
+
+
+@app.post("/api/set-cookies")
+async def set_cookies(payload: CookiePayload):
+    """
+    Inject fresh NSE session cookies into the running app without a restart.
+
+    Usage (from browser console or curl):
+        curl -X POST http://localhost:8000/api/set-cookies \\
+             -H "Content-Type: application/json" \\
+             -d '{"cookies": "YOUR_COOKIE_STRING_HERE"}'
+    """
+    from backend.cookie_manager import CookieManager
+    import time
+    if not payload.cookies or len(payload.cookies) < 20:
+        return JSONResponse({"status": "error", "message": "Cookie string too short"}, status_code=400)
+    CookieManager._cookie_string = payload.cookies
+    CookieManager._fetched_at = time.time()
+    CookieManager._source = "api"
+    logger.info(f"Cookies updated via /api/set-cookies ({len(payload.cookies)} chars)")
+    return {"status": "ok", "message": f"Cookies updated ({len(payload.cookies)} chars). Next scrape will use them."}
+
+
 # Health check endpoint for hosting platforms
 @app.get("/health")
 async def health_check():
+    from backend.cookie_manager import CookieManager
+    import time
     async with _cache_lock:
         has_data = _cached_data.get("status") == "success"
+    cookie_age = int(time.time() - CookieManager._fetched_at)
     return {
         "status": "healthy",
         "has_data": has_data,
+        "cookie_source": CookieManager._source,
+        "cookie_age_seconds": cookie_age,
         "timestamp": datetime.now().isoformat(),
     }
 

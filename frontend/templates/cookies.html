@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PremiumEater — Paste NSE Cookies</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0f; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+  .card { background: #13131f; border: 1px solid #2d2d4e; border-radius: 16px; padding: 2.5rem; max-width: 720px; width: 100%; box-shadow: 0 25px 60px rgba(0,0,0,0.5); }
+  h1 { font-size: 1.6rem; color: #818cf8; margin-bottom: 0.5rem; }
+  .subtitle { color: #64748b; font-size: 0.9rem; margin-bottom: 2rem; }
+  .steps { background: #0f0f1a; border-radius: 10px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem; border-left: 3px solid #818cf8; }
+  .steps ol { padding-left: 1.2rem; }
+  .steps li { color: #94a3b8; font-size: 0.88rem; margin-bottom: 0.4rem; line-height: 1.5; }
+  .steps code { background: #1e1e35; color: #a5f3fc; padding: 1px 6px; border-radius: 4px; font-size: 0.85em; }
+  label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.5rem; letter-spacing: 0.05em; text-transform: uppercase; }
+  textarea { width: 100%; height: 160px; background: #0a0a15; border: 1px solid #2d2d4e; border-radius: 10px; color: #e2e8f0; font-family: monospace; font-size: 0.8rem; padding: 1rem; resize: vertical; outline: none; transition: border-color 0.2s; }
+  textarea:focus { border-color: #818cf8; }
+  .btn { margin-top: 1rem; width: 100%; padding: 0.9rem; background: linear-gradient(135deg, #818cf8, #6366f1); border: none; border-radius: 10px; color: white; font-size: 1rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.1s; letter-spacing: 0.03em; }
+  .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .status { margin-top: 1rem; padding: 1rem; border-radius: 8px; font-size: 0.9rem; display: none; }
+  .status.ok { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+  .status.err { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+  .dash-link { display: block; text-align: center; margin-top: 1.5rem; color: #818cf8; text-decoration: none; font-size: 0.9rem; }
+  .dash-link:hover { text-decoration: underline; }
+  .tip { color: #475569; font-size: 0.78rem; margin-top: 0.5rem; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🍪 Paste NSE Cookies</h1>
+  <p class="subtitle">NSE session cookies expire every ~90 min. Paste fresh ones here — no restart needed.</p>
+
+  <div class="steps">
+    <ol>
+      <li>Open Chrome → go to <code>nseindia.com/option-chain</code></li>
+      <li>Press <code>F12</code> → <strong>Network</strong> tab → reload the page</li>
+      <li>Click any <code>nseindia.com</code> request → <strong>Headers</strong> tab</li>
+      <li>Find <code>cookie:</code> under <em>Request Headers</em></li>
+      <li>Copy everything after <code>cookie: </code> and paste below</li>
+    </ol>
+  </div>
+
+  <label for="cookieInput">Cookie String</label>
+  <textarea id="cookieInput" placeholder="Paste the full cookie string here…" spellcheck="false" autocomplete="off"></textarea>
+  <p class="tip" id="lenTip">Length: 0 characters</p>
+  <button class="btn" onclick="submitCookies()">💾 Save &amp; Apply Cookies</button>
+  <div class="status" id="status"></div>
+  <a class="dash-link" href="/">← Back to OI Dashboard</a>
+</div>
+
+<script>
+  const ta = document.getElementById('cookieInput');
+  const tip = document.getElementById('lenTip');
+
+  ta.addEventListener('input', () => {
+    const v = ta.value.trim();
+    tip.textContent = `Length: ${v.length} characters${v.length > 100 ? ' ✓' : ' (looks short)'}`;
+  });
+
+  async function submitCookies() {
+    const raw = ta.value.trim();
+    if (!raw || raw.length < 20) {
+      showStatus('Cookie string is too short — please paste the full cookie value.', false);
+      return;
+    }
+    // Strip "cookie:" prefix if user accidentally included it
+    const cookies = raw.startsWith('cookie:') ? raw.slice(7).trim() : raw;
+
+    try {
+      const res = await fetch('/api/set-cookies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookies })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'ok') {
+        showStatus(`✅ ${data.message}`, true);
+        ta.value = '';
+        tip.textContent = 'Length: 0 characters';
+      } else {
+        showStatus(`❌ Error: ${data.message || 'Unknown error'}`, false);
+      }
+    } catch (e) {
+      showStatus(`❌ Could not reach server: ${e.message}`, false);
+    }
+  }
+
+  function showStatus(msg, ok) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status ' + (ok ? 'ok' : 'err');
+    el.style.display = 'block';
+    if (ok) setTimeout(() => el.style.display = 'none', 6000);
+  }
+
+  // Allow Ctrl+Enter to submit
+  ta.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter') submitCookies();
+  });
+</script>
+</body>
+</html>
