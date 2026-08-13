@@ -3,5 +3,4 @@
 set -o errexit
 
 pip install -r requirements.txt
-export PLAYWRIGHT_BROWSERS_PATH=0
-playwright install chromium
+# Playwright removed — cookies are now auto-fetched via curl_cffi (no browser needed)
