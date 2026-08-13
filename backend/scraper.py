@@ -106,7 +106,12 @@ class WebScraper:
                         continue
                     
                     if not data:
-                        logging.warning("Empty JSON returned from NSE")
+                        ist_hour = datetime.now(WebScraper.IST).hour
+                        # NSE returns empty JSON when market is closed (before 9am or after 3:30pm)
+                        if ist_hour < 9 or ist_hour >= 16:
+                            logging.info("NSE returned empty data — market is closed.")
+                            return None, None, None  # will surface as market_closed
+                        logging.warning("Empty JSON returned from NSE during market hours")
                         await asyncio.sleep(retry_delay)
                         continue
 
@@ -308,7 +313,14 @@ class WebScraper:
         try:
             rawop, current_price, expiry_date = await WebScraper.fetch_nse_data()
             if rawop is None:
-                return {'status': 'error', 'message': "Failed to fetch data from NSE"}
+                ist_hour = datetime.now(WebScraper.IST).hour
+                if ist_hour < 9 or ist_hour >= 16:
+                    return {
+                        'status': 'market_closed',
+                        'message': 'Market is closed. Data will refresh automatically when market opens at 9:15 AM IST.',
+                        'timestamp': datetime.now(WebScraper.IST).strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                return {'status': 'error', 'message': 'Failed to fetch data from NSE'}
             
             processed_data = WebScraper.process_data(rawop, current_price, expiry_date)
             if processed_data and processed_data.get('data'):

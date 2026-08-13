@@ -34,6 +34,7 @@
         .status-banner.error { background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
         .status-banner.loading { background: rgba(59,130,246,0.2); color: #93c5fd; border: 1px solid rgba(59,130,246,0.4); }
         .status-banner.success { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+        .status-banner.market_closed { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.35); }
         .status-banner.hidden { display: none; }
         /* Pulse for live indicator */
         .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; margin-right: 6px; animation: pulse 2s infinite; }
@@ -460,6 +461,11 @@
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
 
+                if (data.status === 'market_closed') {
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    showBanner('🌙 Market is closed. Dashboard will auto-refresh when market opens at 9:15 AM IST.', 'market_closed');
+                    return;
+                }
                 if (data.status !== 'success') {
                     showBanner(data.message || 'Waiting for data from NSE…', 'loading');
                     return;
